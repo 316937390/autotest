@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?><testsuite errors="0" failures="4" name="pytest" skipped="0" tests="4" time="0.992"><testcase classname="test_demo" file="test_demo.py" line="804" name="test_demo_2" time="0.002"><failure message="assert True == False
+  -True
+  +False">start = (&apos;/data/dsp&apos;, &apos;/data/mvdsp&apos;, &apos;/data/dsp_autocase&apos;, [], &lt;logging.RootLogger object at 0x7fcdd2db93d0&gt;)
+
+    @pytest.mark.demo
+    def test_demo_2(start):
+        logger = start[4]
+        flag = True
+&gt;       assert flag == False
+E       assert True == False
+E         -True
+E         +False
+
+pytest_demo/test_demo.py:809: AssertionError</failure><system-out>2019-10-11 08:36:59 [CRITICAL] == session start == (conftest.py:53)</system-out></testcase><testcase classname="test_demo" file="test_demo.py" line="798" name="test_demo_1" time="0.002"><failure message="assert True == False
+  -True
+  +False">start = (&apos;/data/dsp&apos;, &apos;/data/mvdsp&apos;, &apos;/data/dsp_autocase&apos;, [], &lt;logging.RootLogger object at 0x7fa1d58853d0&gt;)
+
+    @pytest.mark.demo
+    def test_demo_1(start):
+        logger = start[4]
+        flag = True
+&gt;       assert flag == False
+E       assert True == False
+E         -True
+E         +False
+
+pytest_demo/test_demo.py:803: AssertionError</failure><system-out>2019-10-11 08:36:59 [CRITICAL] == session start == (conftest.py:53)</system-out></testcase><testcase classname="test_demo" file="test_demo.py" line="816" name="test_demo_4" time="0.001"><failure message="assert True == False
+  -True
+  +False">start = (&apos;/data/dsp&apos;, &apos;/data/mvdsp&apos;, &apos;/data/dsp_autocase&apos;, [], &lt;logging.RootLogger object at 0x7fcdd2db93d0&gt;)
+
+    @pytest.mark.demo
+    def test_demo_4(start):
+        logger = start[4]
+        flag = True
+&gt;       assert flag == False
+E       assert True == False
+E         -True
+E         +False
+
+pytest_demo/test_demo.py:821: AssertionError</failure><system-out>2019-10-11 08:36:59 [CRITICAL] == session end == (conftest.py:55)</system-out></testcase><testcase classname="test_demo" file="test_demo.py" line="810" name="test_demo_3" time="0.001"><failure message="assert True == False
+  -True
+  +False">start = (&apos;/data/dsp&apos;, &apos;/data/mvdsp&apos;, &apos;/data/dsp_autocase&apos;, [], &lt;logging.RootLogger object at 0x7fa1d58853d0&gt;)
+
+    @pytest.mark.demo
+    def test_demo_3(start):
+        logger = start[4]
+        flag = True
+&gt;       assert flag == False
+E       assert True == False
+E         -True
+E         +False
+
+pytest_demo/test_demo.py:815: AssertionError</failure><system-out>2019-10-11 08:36:59 [CRITICAL] == session end == (conftest.py:55)</system-out></testcase></testsuite>

@@ -1,0 +1,13 @@
+sudo /usr/local/bin/pytest --dist=load --tx 'ssh=-i /root/.ssh/testzhang root@54.157.19.206' --tx 'ssh=-i /root/.ssh/testzhang root@34.197.85.174' --rsyncdir=/data/workspace/workspace/Deploy-Dsp-Server-Coverage/pytest_demo -m 'not_cov_not_branchCheck or grey' -sv --junit-xml=./test_report/xx_result.xml
+
+--dist选项：分布式执行的模式，有4种：each、load、loadscope、loadfile，一般是load，即master将case以round-robin的方式发送到各个slave节点执行；
+
+--tx选项：slave节点，这里有个前提条件是master节点必须能够ssh登录slave节点；
+
+--rsyncdir选项：slave节点要同步master节点的目录，slave节点会把master节点上的这个目录copy到自己的一个路径下（默认是 /root/pyexecnetcache ）；
+
+-m选项：pytest支持marker，按照mark标记运行相应的case，和behave的--tags的作用是类似的；
+
+-sv选项：打印详细输出
+
+--junit-xml选项：输出JUnit格式的测试报告
