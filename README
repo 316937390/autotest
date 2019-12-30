@@ -11,3 +11,6 @@ sudo /usr/local/bin/pytest --dist=load --tx 'ssh=-i /root/.ssh/testzhang root@54
 -sv选项：打印详细输出
 
 --junit-xml选项：输出JUnit格式的测试报告
+
+
+image/：镜像
