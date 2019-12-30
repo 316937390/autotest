@@ -14,3 +14,4 @@ sudo /usr/local/bin/pytest --dist=load --tx 'ssh=-i /root/.ssh/testzhang root@54
 
 
 image/：镜像
+stats/：聚合统计
