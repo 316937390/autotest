@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import example
 
+
 class BaseHandler(object):
     def __init__(self, api, e):
         self.apiName = api
@@ -20,11 +21,12 @@ class BaseMetrics(object):
         for k,v in self.FuncMap.items():
             print("{}->".format(k))
             for e in v:
-                e.calculate()
+                '''example.runnable(e)'''
+                e.run()
 
 if __name__=='__main__':
     bm = BaseMetrics()
     foo = example.Foo(None)
-    h1 = BaseHandler("/login",foo)
-    bm.register(h1)
+    hdl = BaseHandler("/login",foo)
+    bm.register(hdl)
     bm.stat()
