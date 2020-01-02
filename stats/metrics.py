@@ -7,7 +7,7 @@ class BaseHandler(object):
         self.apiName = api
         self.executor = e
 
-class BaseMetrics(object):
+class BaseMetricsProc(object):
     def __init__(self):
         self.FuncMap = {}
 
@@ -25,9 +25,10 @@ class BaseMetrics(object):
                 e.run()
 
 if __name__=='__main__':
-    bm = BaseMetrics()
-    foo = example.Foo(None)
-    ds  = example.Dss(None)
+    bm = BaseMetricsProc()
+    ctx = "ctx"
+    foo = example.Foo(None, ctx)
+    ds  = example.Dss(ctx)
     hdl = BaseHandler("/login",foo)
     bm.register(hdl)
     hdlx = BaseHandler("/login",ds)

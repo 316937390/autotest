@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
 from interface import ICalculate
 from interface import IDisplay
+from interface import IFeeder
 
+class BaseCollector(object):
+    def __init__(self, feeder):
+        self.feeder = feeder
+
+    def record(self, dt):
+        self.feeder.put(dt)
 
 class Foo(ICalculate):
-    def __init__(self, feeder):
+    def __init__(self, feeder, ctx):
         ICalculate.__init__(self)
         self.feeder = feeder
+        self.ctx = ctx
 
     def avg(self):
         print("Foo cal avg")
