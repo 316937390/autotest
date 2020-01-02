@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from interface import ICalculate
+from interface import IDisplay
 
 
 class Foo(ICalculate):
@@ -8,10 +9,10 @@ class Foo(ICalculate):
         self.feeder = feeder
 
     def avg(self):
-        print("Foo avg")
+        print("Foo cal avg")
 
     def max(self):
-        print("Foo max")
+        print("Foo cal max")
 
     def run(self):
         self.avg()
@@ -21,3 +22,11 @@ class Foo(ICalculate):
 def runnable(obj):
     obj.run()
 '''
+
+class Dss(IDisplay):
+    def __init__(self, ctx):
+        IDisplay.__init__(self)
+        self.ctx = ctx
+
+    def run(self):
+        print("Dss display {}".format(self.ctx))

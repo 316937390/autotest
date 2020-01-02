@@ -27,6 +27,9 @@ class BaseMetrics(object):
 if __name__=='__main__':
     bm = BaseMetrics()
     foo = example.Foo(None)
+    ds  = example.Dss(None)
     hdl = BaseHandler("/login",foo)
     bm.register(hdl)
+    hdlx = BaseHandler("/login",ds)
+    bm.register(hdlx)
     bm.stat()

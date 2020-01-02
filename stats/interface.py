@@ -6,3 +6,10 @@ class ICalculate(object):
 
     def run(self):
         raise Exception("no exec")
+
+class IDisplay(object):
+    def __init__(self):
+        pass
+
+    def run(self):
+        raise Exception("no display")
