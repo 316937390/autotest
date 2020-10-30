@@ -8,20 +8,27 @@ LEADER = 0
 FOLLOWER = 1
 CANDIDATE = 2
 
+# heartbeat心跳消息类型
+HEART_BEAT_TYPE_REQ = 1
+HEART_BEAT_TYPE_ACK = 2
+
 class RoleStateMachine(object):
 	"""节点角色状态机"""
     def __init__(self):
     	self.state = FOLLOWER
+    	self.term = 0
 
     def next(self, event):
     	if self.state == FOLLOWER:
     		if event == 'timeout':
     			self.state = CANDIDATE
-    			startElection(self.state)
+    			self.term += 1
+    			startElection()
     	elif self.state == CANDIDATE:
     		if event == 'timeout':
     			self.state = CANDIDATE
-    			startElection(self.state)
+    			self.term += 1
+    			startElection()
     		if event == 'recvMajorVotes':
     			self.state = LEADER
     		if event == 'discoverLeader':
@@ -32,6 +39,12 @@ class RoleStateMachine(object):
     		if event == 'higherTerm':
     			self.state = FOLLOWER
 
+class RaftHeartBeat(object):
+	"""Raft心跳"""
+	def __init__(self, termId, roleType, msgType):
+		self.term = termId
+		self.role = roleType
+		self.type = msgType
 
 
 '''
