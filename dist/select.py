@@ -12,6 +12,86 @@ CANDIDATE = 2
 HEART_BEAT_TYPE_REQ = 1
 HEART_BEAT_TYPE_ACK = 2
 
+# vote信息类型
+VOTE_TYPE_REQ = 0
+VOTE_TYPE_ACK = 1
+
+class RaftHeartBeat(object):
+	"""Raft心跳消息"""
+	def __init__(self, termId, roleType, msgType):
+		self.term = termId
+		self.role = roleType
+		self.type = msgType
+
+class VoteMsg(object):
+	"""vote消息"""
+	def __init__(self, termId, msgType, content):
+		self.term = termId
+		self.type = msgType
+		self.content = content
+
+def newTerm():
+	"""生成新的term任期"""
+	pass
+
+def getCurrentTerm():
+	"""获取当前的term任期"""
+	pass
+
+def getNodeName():
+	"""获取节点标识"""
+	return "Node1"
+
+def getPeers():
+	return []
+
+
+def requestVoteRpc(peers):
+	# 首先给自己投票
+	votes = {}
+	votes[getNodeName()] = 1
+	for _, p in enumerate(peers):
+		termId = getCurrentTerm()
+		msgType = VOTE_TYPE_REQ
+		content = 'vote for me'
+		voteMsg = VoteMsg(termId, msgType, content)
+		resp = ReqVoteRpc(p, voteMsg)
+		if resp.term > termId:
+			# 触发 newTerm 事件
+			break
+		elif resp.term < termId:
+			continue
+		else:
+			if resp.type == VOTE_TYPE_ACK:
+				nodeName = resp.content # 被选为leader的节点标识
+				if votes.get(nodeName) != None:
+					votes[nodeName] += 1
+				else:
+					votes[nodeName] = 1
+			else:
+				continue
+	return votes
+
+def findLeader(votes, peers):
+	threshold = (len(peers)+1) >> 1
+	for k,v in votes.items():
+		if v > threshold:
+			return k, True
+	return None, False
+
+def startElection():
+	"""leader选举"""
+	peers = getPeers()
+	votes = requestVoteRpc(peers)
+	leader, flag = findLeader(votes, peers):
+	if flag:
+		# 选举成功，触发 recvMajorVotes 事件
+		pass
+	else:
+		# 选举失败，重新选举
+		pass
+
+
 class RoleStateMachine(object):
 	"""节点角色状态机"""
     def __init__(self):
@@ -22,12 +102,12 @@ class RoleStateMachine(object):
     	if self.state == FOLLOWER:
     		if event == 'timeout':
     			self.state = CANDIDATE
-    			self.term += 1
+    			self.term = newTerm()
     			startElection()
     	elif self.state == CANDIDATE:
     		if event == 'timeout':
     			self.state = CANDIDATE
-    			self.term += 1
+    			self.term = newTerm()
     			startElection()
     		if event == 'recvMajorVotes':
     			self.state = LEADER
@@ -39,12 +119,7 @@ class RoleStateMachine(object):
     		if event == 'higherTerm':
     			self.state = FOLLOWER
 
-class RaftHeartBeat(object):
-	"""Raft心跳"""
-	def __init__(self, termId, roleType, msgType):
-		self.term = termId
-		self.role = roleType
-		self.type = msgType
+
 
 
 '''
