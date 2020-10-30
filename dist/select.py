@@ -16,6 +16,10 @@ HEART_BEAT_TYPE_ACK = 2
 VOTE_TYPE_REQ = 0
 VOTE_TYPE_ACK = 1
 
+# 节点状态
+NODE_ALIVE = 0
+NODE_DEATH = 1
+
 class RaftHeartBeat(object):
 	"""Raft心跳消息"""
 	def __init__(self, termId, roleType, msgType):
@@ -32,11 +36,15 @@ class VoteMsg(object):
 
 def newTerm():
 	"""生成新的term任期"""
-	pass
+	return 1
 
 def getCurrentTerm():
 	"""获取当前的term任期"""
-	pass
+	return 0
+
+def getCurrentRole():
+	"""获取当前节点角色"""
+	return LEADER
 
 def getNodeName():
 	"""获取节点标识"""
@@ -46,16 +54,16 @@ def getPeers():
 	return []
 
 
-def requestVoteRpc(peers):
+def requestVote(peers):
 	# 首先给自己投票
 	votes = {}
 	votes[getNodeName()] = 1
+	termId = getCurrentTerm()
+	msgType = VOTE_TYPE_REQ
+	content = 'vote for me'
+	voteMsg = VoteMsg(termId, msgType, content)
 	for _, p in enumerate(peers):
-		termId = getCurrentTerm()
-		msgType = VOTE_TYPE_REQ
-		content = 'vote for me'
-		voteMsg = VoteMsg(termId, msgType, content)
-		resp = ReqVoteRpc(p, voteMsg)
+		resp = RequestVoteRpc(p, voteMsg)
 		if resp.term > termId:
 			# 触发 newTerm 事件
 			break
@@ -73,7 +81,7 @@ def requestVoteRpc(peers):
 	return votes
 
 def findLeader(votes, peers):
-	threshold = (len(peers)+1) >> 1
+	threshold = (len(peers) + 1) >> 1
 	for k,v in votes.items():
 		if v > threshold:
 			return k, True
@@ -82,7 +90,7 @@ def findLeader(votes, peers):
 def startElection():
 	"""leader选举"""
 	peers = getPeers()
-	votes = requestVoteRpc(peers)
+	votes = requestVote(peers)
 	leader, flag = findLeader(votes, peers):
 	if flag:
 		# 选举成功，触发 recvMajorVotes 事件
@@ -92,22 +100,49 @@ def startElection():
 		pass
 
 
+def sendHeartBeat(peerAddr, termId, roleType, msgType):
+	"""发送心跳消息"""
+	heartBeatReq = RaftHeartBeat(termId, roleType, msgType)
+
+def recvHeartBeat(peerAddr, heartBeatMsg):
+	"""处理接收的心跳信息"""
+	assert isinstance(heartBeatMsg, RaftHeartBeat)
+	roleState = getCurrentRole()
+	termId = getCurrentTerm()
+	if roleState == LEADER:
+		if heartBeatMsg.term > termId:
+			# 触发 higherTerm 事件
+			return
+		elif heartBeatMsg.type == HEART_BEAT_TYPE_ACK:
+			pass
+	elif roleState == FOLLOWER:
+		sendHeartBeat(peerAddr, termId, roleState, HEART_BEAT_TYPE_ACK)
+	elif roleState == CANDIDATE:
+		if heartBeatMsg.role == LEADER:
+			# 触发 discoverLeader 事件
+			sendHeartBeat(peerAddr, termId, getCurrentRole(), HEART_BEAT_TYPE_ACK)
+			return
+		if heartBeatMsg.term > termId:
+			# 触发 newTerm 事件
+			return
+
+
+
 class RoleStateMachine(object):
 	"""节点角色状态机"""
     def __init__(self):
     	self.state = FOLLOWER
-    	self.term = 0
 
     def next(self, event):
     	if self.state == FOLLOWER:
     		if event == 'timeout':
     			self.state = CANDIDATE
-    			self.term = newTerm()
+    			newTerm()
     			startElection()
     	elif self.state == CANDIDATE:
     		if event == 'timeout':
     			self.state = CANDIDATE
-    			self.term = newTerm()
+    			newTerm()
     			startElection()
     		if event == 'recvMajorVotes':
     			self.state = LEADER
@@ -120,6 +155,13 @@ class RoleStateMachine(object):
     			self.state = FOLLOWER
 
 
+class Node(object):
+	"""节点信息"""
+	def __init__(self, nodeName, peers):
+		self.nodeName = nodeName
+		self.roleState = RoleStateMachine()
+		self.term = 0
+		self.peers = peers
 
 
 '''
