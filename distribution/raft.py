@@ -21,6 +21,14 @@ NODE_ALIVE = 1
 NODE_DEATH = 2
 NODE_UNKNOWN = 0
 
+# 超时
+TIMEOUT_HEART_BEAT = 5
+TIMEOUT_SELECTION = 3
+
+# 心跳间隔
+INTERVAL_HEART_BEAT = 1
+
+#################################################################################################
 class RaftHeartBeat(object):
 	"""Raft心跳消息"""
 	def __init__(self, termId, roleType, msgType):
@@ -113,12 +121,12 @@ class RoleStateMachine(object):
 
     def next(self, event):
     	if self.state == FOLLOWER:
-    		if event == 'timeout':
+    		if event == 'heartBeatTimeout':
     			self.state = CANDIDATE
     			newTerm()
     			startElection()
     	elif self.state == CANDIDATE:
-    		if event == 'timeout':
+    		if event == 'selectTimeout':
     			self.state = CANDIDATE
     			newTerm()
     			startElection()
@@ -139,13 +147,15 @@ class Node(object):
 		self.nodeName = nodeName
 		self.roleState = RoleStateMachine()
 		self.term = 0
+		self.leader = ''
 		self.peerState = { v:NODE_UNKNOWN for _,v in enumerate(peers) }
 
 	def updatePeerState(self, peerName, state):
 		if self.peerState.get(peerName) != None:
 			self.peerState[peerName] = state
 
-
+    def determineLeader(self, name):
+    	self.leader = name
 
 """
 节点实例 node
@@ -188,4 +198,6 @@ def recvHeartBeat(peerAddr, heartBeatMsg):
 
 """
 心跳消息采用 udp 协议传输，默认端口 13066
+连续 k 次心跳消息超时，则认为节点不在线
+leader 向 follower 发送心跳消息
 """
