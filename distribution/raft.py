@@ -17,8 +17,9 @@ VOTE_TYPE_REQ = 0
 VOTE_TYPE_ACK = 1
 
 # 节点状态
-NODE_ALIVE = 0
-NODE_DEATH = 1
+NODE_ALIVE = 1
+NODE_DEATH = 2
+NODE_UNKNOWN = 0
 
 class RaftHeartBeat(object):
 	"""Raft心跳消息"""
@@ -36,22 +37,28 @@ class VoteMsg(object):
 
 def newTerm():
 	"""生成新的term任期"""
-	return 1
+	global node
+	node.term += 1
+	return node.term
 
 def getCurrentTerm():
 	"""获取当前的term任期"""
-	return 0
+	global node
+	return node.term
 
 def getCurrentRole():
 	"""获取当前节点角色"""
-	return LEADER
+	global node
+	return node.roleState.state
 
 def getNodeName():
 	"""获取节点标识"""
-	return "Node1"
+	global node
+	return node.nodeName
 
 def getPeers():
-	return []
+	global node
+	return node.peerState.keys()
 
 
 def requestVote(peers):
@@ -99,35 +106,6 @@ def startElection():
 		# 选举失败，重新选举
 		pass
 
-
-def sendHeartBeat(peerAddr, termId, roleType, msgType):
-	"""发送心跳消息"""
-	heartBeatReq = RaftHeartBeat(termId, roleType, msgType)
-
-def recvHeartBeat(peerAddr, heartBeatMsg):
-	"""处理接收的心跳信息"""
-	assert isinstance(heartBeatMsg, RaftHeartBeat)
-	roleState = getCurrentRole()
-	termId = getCurrentTerm()
-	if roleState == LEADER:
-		if heartBeatMsg.term > termId:
-			# 触发 higherTerm 事件
-			return
-		elif heartBeatMsg.type == HEART_BEAT_TYPE_ACK:
-			pass
-	elif roleState == FOLLOWER:
-		sendHeartBeat(peerAddr, termId, roleState, HEART_BEAT_TYPE_ACK)
-	elif roleState == CANDIDATE:
-		if heartBeatMsg.role == LEADER:
-			# 触发 discoverLeader 事件
-			sendHeartBeat(peerAddr, termId, getCurrentRole(), HEART_BEAT_TYPE_ACK)
-			return
-		if heartBeatMsg.term > termId:
-			# 触发 newTerm 事件
-			return
-
-
-
 class RoleStateMachine(object):
 	"""节点角色状态机"""
     def __init__(self):
@@ -161,8 +139,53 @@ class Node(object):
 		self.nodeName = nodeName
 		self.roleState = RoleStateMachine()
 		self.term = 0
-		self.peers = peers
-		self.peerState = {}
+		self.peerState = { v:NODE_UNKNOWN for _,v in enumerate(peers) }
+
+	def updatePeerState(self, peerName, state):
+		if self.peerState.get(peerName) != None:
+			self.peerState[peerName] = state
 
 
 
+"""
+节点实例 node
+参数1：该节点标识
+参数2：其他节点标识列表
+"""
+node = Node('nodeA', ['nodeB', 'nodeC'])
+
+def sendHeartBeat(peerAddr, termId, roleType, msgType):
+	"""发送心跳消息"""
+	heartBeatReq = RaftHeartBeat(termId, roleType, msgType)
+
+def recvHeartBeat(peerAddr, heartBeatMsg):
+	"""处理接收的心跳信息"""
+	assert isinstance(heartBeatMsg, RaftHeartBeat)
+	roleState = getCurrentRole()
+	termId = getCurrentTerm()
+	if heartBeatMsg.term < termId:
+		return
+	global node
+	if roleState == LEADER:
+		if heartBeatMsg.term > termId:
+			# 触发 higherTerm 事件
+			return
+		elif heartBeatMsg.type == HEART_BEAT_TYPE_ACK:
+			# 更新 Node peerState
+			node.updatePeerState(peerAddr.name, NODE_ALIVE)
+
+	elif roleState == FOLLOWER:
+		sendHeartBeat(peerAddr, termId, roleState, HEART_BEAT_TYPE_ACK)
+
+	elif roleState == CANDIDATE:
+		if heartBeatMsg.term > termId:
+			# 触发 newTerm 事件
+			return
+		if heartBeatMsg.role == LEADER:
+			# 触发 discoverLeader 事件
+			sendHeartBeat(peerAddr, termId, getCurrentRole(), HEART_BEAT_TYPE_ACK)
+			return
+
+"""
+心跳消息采用 udp 协议传输，默认端口 13066
+"""
