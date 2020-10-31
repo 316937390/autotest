@@ -68,6 +68,9 @@ def getPeers():
 	global node
 	return node.peerState.keys()
 
+# 投票信息传输采用 RPC 协议
+def RequestVoteRpc(addr, msg):
+	return VoteMsg(1, VOTE_TYPE_ACK, 'nodeA')
 
 def requestVote(peers):
 	# 首先给自己投票
