@@ -43,31 +43,6 @@ class VoteMsg(object):
         self.type = msgType
         self.content = content
 
-def newTerm():
-    """生成新的term任期"""
-    global node
-    node.term += 1
-    return node.term
-
-def getCurrentTerm():
-    """获取当前的term任期"""
-    global node
-    return node.term
-
-def getCurrentRole():
-    """获取当前节点角色"""
-    global node
-    return node.roleState.state
-
-def getNodeName():
-    """获取节点标识"""
-    global node
-    return node.nodeName
-
-def getPeers():
-    global node
-    return node.peerState.keys()
-
 class Event(object):
     """Event类"""
     def __init__(self, eventType):
@@ -82,7 +57,8 @@ class HeartBeatTimeoutEvent(Event):
         super(HeartBeatTimeoutEvent, self).__init__('heartBeatTimeout')
 
     def behave(self):
-        newTerm()
+        global node
+        node.newTerm()
         startElection()
 
 class SelectTimeoutEvent(Event):
@@ -91,7 +67,8 @@ class SelectTimeoutEvent(Event):
         super(SelectTimeoutEvent, self).__init__('selectTimeout')
 
     def behave(self):
-        newTerm()
+        global node
+        node.newTerm()
         startElection()
 
 class RecvMajorVotesEvent(Event):
@@ -140,9 +117,10 @@ def RequestVoteRpc(addr, msg):
 
 def requestVote(peers):
     # 首先给自己投票
+    global node
     votes = {}
-    votes[getNodeName()] = 1
-    termId = getCurrentTerm()
+    votes[node.getNodeName()] = 1
+    termId = node.getCurrentTerm()
     msgType = VOTE_TYPE_REQ
     content = 'vote for me'
     voteMsg = VoteMsg(termId, msgType, content)
@@ -154,7 +132,6 @@ def requestVote(peers):
         if resp.term > termId:
             # 触发 newTerm 事件
             global newterm
-            global node
             newterm = resp.term
             e = NewTermEvent()
             node.roleState.next(e)
@@ -182,14 +159,14 @@ def findLeader(votes, peers):
 
 def startElection():
     """leader选举"""
-    peers = getPeers()
-    votes = requestVote(peers)
     global leader
     global node
+    peers = node.getPeers()
+    votes = requestVote(peers)
     leader, flag = findLeader(votes, peers):
     if flag:
         # 选举成功，可触发 recvMajorVotes 事件
-        if getNodeName() == leader:
+        if node.getNodeName() == leader:
             e = RecvMajorVotesEvent()
             node.roleState.next(e)
             e.behave()
@@ -234,10 +211,33 @@ class Node(object):
             self.peerState[peerName] = state
 
     def determineLeader(self, name):
+        """设置leader节点"""
         self.leader = name
 
     def determineTerm(self, term):
+        """设置term任期"""
         self.term = term
+
+    def newTerm(self):
+        """生成新的term任期"""
+        self.term += 1
+        return self.term
+
+    def getCurrentTerm(self):
+        """获取当前的term任期"""
+        return self.term
+
+    def getCurrentRole(self):
+        """获取当前节点角色"""
+        return self.roleState.state
+
+    def getNodeName(self):
+        """获取当前节点标识"""
+        return self.nodeName
+
+    def getPeers(self):
+        """获取peer节点列表"""
+        return self.peerState.keys()
 
 """
 节点实例 node
@@ -255,9 +255,9 @@ def sendHeartBeat(peerAddr, termId, roleType, msgType):
 def recvHeartBeat(peerAddr, heartBeatMsg):
     """处理接收的心跳信息"""
     assert isinstance(heartBeatMsg, RaftHeartBeat)
-    roleState = getCurrentRole()
-    termId = getCurrentTerm()
     global node
+    roleState = node.getCurrentRole()
+    termId = node.getCurrentTerm()
     if roleState == LEADER:
         if heartBeatMsg.term < termId:
             return
