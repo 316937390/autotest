@@ -81,7 +81,10 @@ def requestVote(peers):
 	content = 'vote for me'
 	voteMsg = VoteMsg(termId, msgType, content)
 	for _, p in enumerate(peers):
-		resp = RequestVoteRpc(p, voteMsg)
+		resp, err = RequestVoteRpc(p, voteMsg)
+		if err != None:
+			print('RequestVoteRpc Error!')
+			continue
 		if resp.term > termId:
 			# 触发 newTerm 事件
 			break
