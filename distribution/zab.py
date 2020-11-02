@@ -3,10 +3,12 @@
 '''
 zab协议
 全局唯一标识zxid
-<投票轮数，被投节点的zxid，被投节点的编号>
+<投票轮数，被投节点的zxid，被投节点的编号> 即(voteRound, votedZxid, votedNodeId)
 '''
+epoch = 0x10
+incId = 0x01
 zxid = (epoch << 32) | (incId & 0xffffffff)
-(voteRound, votedZxid, votedNodeId)
+
 
 class ZookeeperVoteMsg(object):
 	"""投票信息类"""
