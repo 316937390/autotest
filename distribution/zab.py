@@ -9,6 +9,8 @@ zk集群的一个节点，有三种状态：
 – looking   : 选举状态，当前群龙无首；
 – leading   : leader才有的状态；
 – following : follower才有的状态；
+
+默认 zab 采用的算法是 fast paxos 算法。
 '''
 
 
