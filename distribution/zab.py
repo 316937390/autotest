@@ -81,8 +81,8 @@ class TicketBox(object):
             """
             比较收到的选票和自己投出去的选票的优先级
             """
-            comparePriority(ticket)
-        whetherFindLeader(node)
+            self.comparePriority(ticket)
+        self.whetherFindLeader(node)
 
     def comparePriority(self, ticket):
         """投票优先级：优先比较 zxid ,如果相等,再比较 node 的id,按照从大到小的顺序。"""
