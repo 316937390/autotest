@@ -113,7 +113,28 @@ class HigherTermEvent(Event):
 
 # 投票信息传输采用 RPC 协议
 def RequestVoteRpc(addr, msg):
-    return VoteMsg(1, VOTE_TYPE_ACK, 'nodeA')
+    """
+    拥有最新的已提交的log entry的Follower才有资格成为Leader。
+    其他节点收到消息时，如果发现自己的日志比请求中携带的更新，则拒绝该投票。
+    日志比较的原则是，如果本地的最后一条log entry的term更大，则term大的更新，如果term一样大，则log index更大的更新。
+    """
+    assert msg.type == VOTE_TYPE_REQ
+    global node
+    cs = msg.content.split(',')
+    logIdx = cs[1]
+    termIdx = cs[2]
+    if node.logEntries.tail.logTerm > termIdx:
+        return (VoteMsg(node.getCurrentTerm(), VOTE_TYPE_ACK, node.getNodeName()), None)
+    elif node.logEntries.tail.logTerm < termIdx:
+        return (VoteMsg(node.getCurrentTerm(), VOTE_TYPE_ACK, addr.name), None)
+    else:
+        if node.logEntries.tail.logIndex > logIdx:
+            return (VoteMsg(node.getCurrentTerm(), VOTE_TYPE_ACK, node.getNodeName()), None)
+        elif node.logEntries.tail.logIndex < logIdx:
+            return (VoteMsg(node.getCurrentTerm(), VOTE_TYPE_ACK, addr.name), None)
+        else:
+            # 选谁都行
+            return (VoteMsg(node.getCurrentTerm(), VOTE_TYPE_ACK, 'nodeA'), None)
 
 def requestVote(peers):
     # 首先给自己投票
@@ -122,7 +143,8 @@ def requestVote(peers):
     votes[node.getNodeName()] = 1
     termId = node.getCurrentTerm()
     msgType = VOTE_TYPE_REQ
-    content = 'vote for me'
+    # Candidate在发送RequestVote RPC时，要带上自己的最后一条日志的term和log index
+    content = 'vote for me,{},{}'.format(node.logEntries.tail.logIndex, node.logEntries.tail.logTerm)
     voteMsg = VoteMsg(termId, msgType, content)
     for _, p in enumerate(peers):
         resp, err = RequestVoteRpc(p, voteMsg)
@@ -200,10 +222,11 @@ class RoleStateMachine(object):
 class Node(object):
     """节点信息"""
     def __init__(self, nodeName, peers):
-        self.nodeName = nodeName
-        self.roleState = RoleStateMachine()
-        self.term = 0
-        self.leader = ''
+        self.nodeName = nodeName            # 节点标识
+        self.roleState = RoleStateMachine() # 角色
+        self.term = 0           # 任期
+        self.leader = ''        # 主节点
+        self.logEntries = Log() # 日志条目列表
         self.peerState = { v:NODE_UNKNOWN for _,v in enumerate(peers) }
 
     def updatePeerState(self, peerName, state):
