@@ -299,5 +299,58 @@ def recvHeartBeat(peerAddr, heartBeatMsg):
 """
 心跳消息采用 udp 协议传输，默认端口 13066
 连续 k 次心跳消息超时，则认为节点不在线
-leader 向 follower 发送心跳消息
+leader 向 follower 周期性发送心跳消息
 """
+
+
+"""
+日志同步
+Leader把客户端请求作为日志条目（Log entries）加入到它的日志中，然后向其他服务器发起 AppendEntriesRPC 复制日志条目。
+日志由有序编号（log index）的日志条目组成。每个日志条目包含它被创建时的 term 任期。
+"""
+class LogEntry(object):
+    """日志条目"""
+    def __init__(self, index, term):
+        self.logIndex = index
+        self.logTerm = term
+        self.prev = None
+        self.next = None
+
+class Log(object):
+    """日志，采用链表实现"""
+    def __init__(self):
+        self.head = None
+        self.tail = None
+
+    def append(self, logEntry):
+        if self.tail != None:
+            self.tail.next = logEntry
+            logEntry.prev = self.tail
+            self.tail = logEntry
+        else:
+            self.head = logEntry
+            self.tail = logEntry
+
+def AppendEntriesRPC(log, prevLogEntry, newLogEntry):
+    """
+    简单的一致性检查：
+      当发送一个 AppendEntries RPC 时，Leader会把新日志条目紧接着之前条目的log index和term都包含在里面。
+      如果Follower没有在它的日志中找到log index和term都相同的日志，它就会拒绝新的日志条目。
+    """
+    cur = log.tail
+    while cur:
+        if cur.logIndex == prevLogEntry.logIndex and cur.logTerm == prevLogEntry.logTerm:
+            break
+        else:
+            cur = cur.prev
+    if cur == None:
+        #raise Exception('refuse AppendEntriesRPC new log entries')
+        return False
+    """
+    Leader通过强制Followers复制它的日志来处理日志的不一致，Followers上的不一致的日志会被Leader的日志覆盖。
+    Leader需要找到Followers同它的日志一致的地方，然后覆盖Followers在该位置之后的条目。
+    Leader会从后往前试，每次AppendEntries失败后尝试前一个日志条目，直到成功找到与每个Follower的日志一致位点，然后向后逐条覆盖Followers在该位置之后的条目。
+    """
+    log.tail = cur
+    log.append(newLogEntry)
+    return True
