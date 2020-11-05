@@ -224,9 +224,11 @@ class Node(object):
     def __init__(self, nodeName, peers):
         self.nodeName = nodeName            # 节点标识
         self.roleState = RoleStateMachine() # 角色
-        self.term = 0           # 任期
-        self.leader = ''        # 主节点
-        self.logEntries = Log() # 日志条目列表
+        self.term = 0             # 任期
+        self.leader = None        # 主节点
+        self.logEntries = Log()   # 日志条目列表
+        self.committedLogEntry = None   # 最后一条已提交的日志条目
+        self.hasCopiedLogEntry = []     # 复制成功的日志条目列表
         self.peerState = { v:NODE_UNKNOWN for _,v in enumerate(peers) }
 
     def updatePeerState(self, peerName, state):
@@ -339,6 +341,15 @@ class LogEntry(object):
         self.prev = None
         self.next = None
 
+    def equal(self, l):
+        """判断两个日志条目是否相同"""
+        if l == None:
+            return False
+        if self.logIndex == l.logIndex and self.logTerm == l.logTerm:
+            return True
+        else:
+            return False
+
 class Log(object):
     """日志，采用链表实现"""
     def __init__(self):
@@ -354,12 +365,14 @@ class Log(object):
             self.head = logEntry
             self.tail = logEntry
 
-def AppendEntriesRPC(log, prevLogEntry, newLogEntry):
+def AppendEntriesRPC(prevLogEntry, newLogEntry):
     """
     简单的一致性检查：
       当发送一个 AppendEntries RPC 时，Leader会把新日志条目紧接着之前条目的log index和term都包含在里面。
       如果Follower没有在它的日志中找到log index和term都相同的日志，它就会拒绝新的日志条目。
     """
+    global node
+    log = node.logEntries
     if prevLogEntry == None:
         log.append(newLogEntry)
         return True
@@ -380,3 +393,121 @@ def AppendEntriesRPC(log, prevLogEntry, newLogEntry):
     log.tail = cur
     log.append(newLogEntry)
     return True
+
+def newLogEntry(l):
+    assert isinstance(l, LogEntry)
+    return LogEntry(l.logIndex, l.logTerm)
+
+def copyEntries(peers, newLog):
+    """
+    Leader把客户端请求作为日志条目（Log entries）加入到它的日志中，
+    然后向Followers发起 AppendEntriesRPC 复制日志条目。
+    """
+    global node
+    log = node.logEntries
+    log.append(newLog)
+    suc = 0
+    threshold = len(peers) >> 1
+    for _,p in enumerate(peers):
+        if AppendEntriesRPC(log.tail.prev, newLogEntry(newLog)):
+            suc += 1
+            continue
+        else:
+            """
+            每次AppendEntries失败后尝试前一个日志条目，直到成功找到与每个Follower的日志一致位点，
+            然后向后逐条覆盖Followers在该位置之后的条目。
+            """
+            curLogEntry  = log.tail.prev
+            while curLogEntry:
+                if curLogEntry.prev == None:
+                    curLogEntry = None
+                    break
+                if not AppendEntriesRPC(curLogEntry.prev, newLogEntry(curLogEntry)):
+                    curLogEntry = curLogEntry.prev
+                    continue
+                else:
+                    break
+            if curLogEntry == None:
+                """
+                当Leader要发给某个日志落后太多的Follower的log entry被丢弃，Leader会将snapshot发给Follower。
+                """
+                pass
+            else:
+                while curLogEntry.next:
+                    AppendEntriesRPC(curLogEntry, newLogEntry(curLogEntry.next))
+                    curLogEntry = curLogEntry.next
+                suc += 1
+
+    if suc > threshold:
+        node.hasCopiedLogEntry.append(log.tail)
+        return True
+    else:
+        return False
+
+def commitLogEntries(peers):
+    """Leader向Followers发起提交日志"""
+    global node
+    assert len(node.hasCopiedLogEntry) != 0
+    log = node.logEntries
+    cur = log.head
+    commitIndex = -1
+    if node.committedLogEntry != None:
+        cur = node.committedLogEntry
+        commitIndex = node.committedLogEntry.logIndex
+    """
+    Leader只能推进commit index来提交当前term的已经复制到大多数服务器上的日志，
+    旧term日志的提交要等到提交当前term的日志来间接提交（log index 小于 commit index的日志被间接提交）。
+    之所以要这样，是因为可能会出现已提交的日志又被覆盖的情况。
+    """
+    while cur:
+        if cur.logTerm == node.getCurrentTerm():
+            if cur.logIndex > commitIndex and \
+            cur.logIndex in [ v.logIndex for _,v in enumerate(node.hasCopiedLogEntry)]:
+                for _,p in enumerate(peers):
+                    CommitLogPRC(newLogEntry(cur))
+                node.committedLogEntry = cur
+                commitIndex = cur.logIndex
+        cur = cur.next
+
+def CommitLogPRC(logEntry):
+    """日志提交RPC"""
+    global node
+    log = node.logEntries
+    cur = log.head
+    commitIndex = -1
+    if node.committedLogEntry != None:
+        cur = node.committedLogEntry
+        commitIndex = node.committedLogEntry.logIndex
+    while cur:
+        if cur.logIndex > commitIndex and cur.logIndex <= logEntry.logIndex:
+            node.committedLogEntry = cur
+            commitIndex = cur.logIndex
+        cur = cur.next
+
+
+
+"""
+日志压缩
+在实际的系统中，不能让日志无限增长，否则系统重启时需要花很长的时间进行回放，从而影响可用性。
+Raft采用对整个系统进行snapshot来解决，snapshot之前的日志都可以丢弃。
+
+每个副本独立的对自己的系统状态进行snapshot，并且只能对已经提交的日志记录进行snapshot。
+Snapshot中包含以下内容：
+- 日志元数据。最后一条已提交的log entry的log index和term。
+  这两个值在snapshot之后的第一条log entry的AppendEntries RPC的完整性检查的时候会被用上。
+- 系统当前状态。
+
+当Leader要发给某个日志落后太多的Follower的log entry被丢弃，Leader会将snapshot发给Follower。
+或者当新加进一台机器时，Leader也会发送snapshot给它。发送snapshot使用InstalledSnapshot RPC。
+
+推荐当日志达到某个固定的大小做一次snapshot。
+"""
+class SnapShot(object):
+    """日志压缩快照类"""
+    def __init__(self, committedLogEntry, nodeState):
+        self.logMeta = {'logIndex':committedLogEntry.logIndex, "logTerm":committedLogEntry.logTerm}
+        self.curState = nodeState
+
+def InstalledSnapshotRPC(snapshot):
+    """Leader将snapshot发给Follower"""
+    pass
