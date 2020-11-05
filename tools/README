@@ -1,0 +1,1 @@
+python3 ./press.py -t 8 -q 800 -n 8000 --protocol grpc -d localhost:12066 --input ./xx.log
