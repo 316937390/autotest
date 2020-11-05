@@ -185,3 +185,32 @@ def terminateElection():
     return node.ticketBox.leader
 
 
+"""
+主从同步
+当有写操作时，如果是从节点接收，会转发到主节点，保证写都是在主节点上进行。
+主节点先提议(proposal)，收到过半从节点回复后，再提交(commit)。
+主从同步通过提议和提交两个阶段，有超过一半的节点写成功，则认为数据写成功。
+"""
+
+def Sync():
+    global node
+    peers = node.getPeers()
+    suc = 0
+    threshold = len(peers) >> 1
+    for _,p in enumerate(peers):
+        if proposalRpc(p):
+            suc += 1
+    if suc > threshold:
+        for _,p in enumerate(peers):
+            commitRpc(p)
+        return True
+    else:
+        return False
+
+def proposalRpc(peer):
+    """阶段一"""
+    return True
+
+def commitRpc(peer):
+    """阶段二"""
+    pass

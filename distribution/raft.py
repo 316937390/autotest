@@ -360,6 +360,9 @@ def AppendEntriesRPC(log, prevLogEntry, newLogEntry):
       当发送一个 AppendEntries RPC 时，Leader会把新日志条目紧接着之前条目的log index和term都包含在里面。
       如果Follower没有在它的日志中找到log index和term都相同的日志，它就会拒绝新的日志条目。
     """
+    if prevLogEntry == None:
+        log.append(newLogEntry)
+        return True
     cur = log.tail
     while cur:
         if cur.logIndex == prevLogEntry.logIndex and cur.logTerm == prevLogEntry.logTerm:
