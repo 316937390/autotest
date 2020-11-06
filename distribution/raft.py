@@ -464,12 +464,12 @@ def commitLogEntries(peers):
             if cur.logIndex > commitIndex and \
             cur.logIndex in [ v.logIndex for _,v in enumerate(node.hasCopiedLogEntry)]:
                 for _,p in enumerate(peers):
-                    CommitLogPRC(newLogEntry(cur))
+                    CommitLogRPC(newLogEntry(cur))
                 node.committedLogEntry = cur
                 commitIndex = cur.logIndex
         cur = cur.next
 
-def CommitLogPRC(logEntry):
+def CommitLogRPC(logEntry):
     """日志提交RPC"""
     global node
     log = node.logEntries
