@@ -508,6 +508,19 @@ class SnapShot(object):
         self.logMeta = {'logIndex':committedLogEntry.logIndex, "logTerm":committedLogEntry.logTerm}
         self.curState = nodeState
 
+def copyFromNodeState(state):
+    """加载snapshot的系统状态，来更新当前节点的系统状态"""
+    assert isinstance(state, dict)
+    global node
+    for k,v in state.items():
+        if hasattr(node,k):
+            setattr(node,k,v)
+
 def InstalledSnapshotRPC(snapshot):
     """Leader将snapshot发给Follower"""
-    pass
+    assert isinstance(snapshot, SnapShot)
+    global node
+    node.committedLogEntry = LogEntry(snapshot.logMeta["logIndex"], snapshot.logMeta["logTerm"])
+    copyFromNodeState(snapshot.curState)
+
+
